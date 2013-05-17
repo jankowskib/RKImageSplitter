@@ -1,4 +1,4 @@
-split_rkimage: split_rkimage.c
+RKImageSplitter: RKImageSplitter.c
 	gcc -o $@ $^
 clean:
-	rm split_rkimage
+	rm RKImageSplitter

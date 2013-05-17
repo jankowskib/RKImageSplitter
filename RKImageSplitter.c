@@ -1,4 +1,4 @@
-/*   split_rkimage.c
+/*   RKImageSplitter.c
  *      
  *   Copyright 2013 Bartosz Jankowski
  *
@@ -19,6 +19,34 @@
 #include <time.h>
 #include <getopt.h>
 
+#if defined _WIN32 || defined _WIN64
+#include <stdarg.h>
+int asprintf(char **strp, const char *fmt, ...)
+{
+    va_list va, va_bak;
+   int len;
+
+    va_start(va, fmt);
+    va_copy(va_bak, va);
+
+    len = vsnprintf(NULL, 0, fmt, va);
+    if (len < 0)
+        goto end;
+
+    *strp = malloc(len + 1);
+    if (!*strp) {
+        len = -1;
+        goto end;
+   }
+
+    len = vsnprintf(*strp, len, fmt, va_bak);
+
+end:
+    va_end(va);
+    return len;
+}
+#endif
+
 static void usage(char **argv)
 {
 	printf("Usage: %s file\n"
@@ -32,20 +60,10 @@ int main(int argc, char *argv[])
 	int c, i_opt = 0;
 	FILE * f;
 	char *fname = 0;
-	const struct option s_opt[] = 
-	{
-		{0,					0,					0,	0	}
-	};
 	
-	while((c = getopt_long(argc, argv, "", s_opt, &i_opt)) != -1) 
+	if (argc == 2 )
 	{
-			printf("Unknown parameter. Type %s --help to show usage\n", argv[0]);
-			exit(EXIT_FAILURE);
-	}
-		 
-	if (optind < argc )
-	{
-		f = fopen(argv[optind], "rb");
+		f = fopen(argv[1], "rb");
 		if(!f)
 		{
 			printf("File %s doesn't exists!\n", argv[optind]);
@@ -53,6 +71,8 @@ int main(int argc, char *argv[])
 		}
 		fname = argv[optind];
 	}
+	else	
+		usage(argv);
 		
 	printf("===========================================\n"
 		   "Rockchip Firmware Splitter v. 0.1 by lolet\n"
