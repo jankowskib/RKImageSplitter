@@ -49,9 +49,7 @@ end:
 
 static void usage(char **argv)
 {
-	printf("Usage: %s file\n"
-		, argv[0]
-	);
+	printf("Usage: %s file\n", argv[0]);
 	exit(EXIT_FAILURE);
 }
 
@@ -119,7 +117,10 @@ int main(int argc, char *argv[])
 	}
 	
 	char *nf = 0;
-	asprintf(&nf,"u_%s",fname);
+	char *f_ext = strrchr(fname,'.');
+	f_ext[0] = 0;
+	++f_ext;
+	asprintf(&nf,"%s_u.%s",fname,f_ext);
 	
 	FILE * ft = fopen(nf,"wb");
 	free(nf);
