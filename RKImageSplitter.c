@@ -19,33 +19,28 @@
 #include <time.h>
 #include <getopt.h>
 
-#if defined _WIN32 || defined _WIN64
-#include <stdarg.h>
-int asprintf(char **strp, const char *fmt, ...)
+#pragma pack(1)
+
+struct RKFWHeader
 {
-    va_list va, va_bak;
-   int len;
-
-    va_start(va, fmt);
-    va_copy(va_bak, va);
-
-    len = vsnprintf(NULL, 0, fmt, va);
-    if (len < 0)
-        goto end;
-
-    *strp = malloc(len + 1);
-    if (!*strp) {
-        len = -1;
-        goto end;
-   }
-
-    len = vsnprintf(*strp, len, fmt, va_bak);
-
-end:
-    va_end(va);
-    return len;
-}
-#endif
+	unsigned int 	header;
+	unsigned short 	size;
+	unsigned int	version;
+	unsigned int	code;
+	
+	struct RKFWTime
+	{
+		unsigned short	year;
+		unsigned char	month;
+		unsigned char	day;
+		unsigned char	hour;
+		unsigned char	minute;
+		unsigned char	second;
+	} rktime;
+	unsigned int	chip;
+	unsigned char _padding[3];
+};
+#pragma pack()
 
 static void usage(char **argv)
 {
@@ -73,65 +68,74 @@ int main(int argc, char *argv[])
 		usage(argv);
 		
 	printf("===========================================\n"
-		   "Rockchip Firmware Splitter v. 0.1 by lolet\n"
+		   "Rockchip Firmware Splitter v. 0.2 by lolet\n"
 		   "===========================================\n");
 	printf ("Input file: %s\n", fname);
 	
     fseek (f , 0 , SEEK_END);
 	int s = ftell (f);
 	rewind (f);
-	if(s<16) 
+	if(s<sizeof(struct RKFWHeader)) 
 	{
 		printf("File is too small!\n");
 		fclose(f);
 		exit(EXIT_FAILURE);
 	}
 	
-	int sig = 0;
-	fread(&sig,1,4,f);
-	char *cs = (char*)&sig;
+	struct RKFWHeader rkh = {0};
+	fread(&rkh, sizeof(rkh), 1, f);
+	char *cs = (char*)&rkh.header;
 	printf("File signature: %c%c%c%c\n", cs[0],cs[1],cs[2],cs[3]);
 	
-	if(sig == 0x46414B52)
+	if(rkh.header == 0x46414B52)
 	{
 		printf("File is already splited!\n");
 		fclose(f);
 		exit(EXIT_FAILURE);
 	}
 	
-	if(sig != 0x57464B52) 
+	if(rkh.header != 0x57464B52) 
 	{
 		printf("Wrong file signature!\n");
 		fclose(f);
 		exit(EXIT_FAILURE);
 	}
 	
+	printf("Firmware version:\t%d.%d.%.2d\n", rkh.version >> 24 & 255, rkh.version >> 16 & 255, rkh.version & 0xFFFF);
+	printf("Firmware date:\t\t%d.%.2d.%.2d %.2d:%.2d:%.2d\n", rkh.rktime.year, rkh.rktime.month, rkh.rktime.day, rkh.rktime.hour, rkh.rktime.minute, rkh.rktime.second);
+	
+	int sig = 0;
 	while(!feof(f))
 	{
-	fread(&sig,1,4,f);
-		if(sig == 0x46414B52)
+		fread(&sig,1,4,f);
+			if(sig == 0x46414B52)
+			{
+				printf("Found RKAF signature!\n");
+				break;
+			}
+		if(feof(f)) 
 		{
-			printf("Found RKAF signature!\n");
-			break;
+			printf("RKAF signature not found!\n");
+			fclose(f);
+			exit(EXIT_FAILURE);
 		}
 	}
 	
-	char *nf = 0;
-	char *f_ext = strrchr(fname,'.');
+	char nf[255] = {0};
+	char *f_ext = strrchr(fname,(int)'.');
 	f_ext[0] = 0;
-	++f_ext;
-	asprintf(&nf,"%s_u.%s",fname,f_ext);
+	
+	sprintf(nf,"%s_u.img",fname);
 	
 	FILE * ft = fopen(nf,"wb");
-	free(nf);
 	
 	if(!ft)
 	{
-		printf("Cannot create temporary file!");
+		printf("Cannot create temporary file (%s)!", nf);
 		fclose(f);
 		exit(EXIT_FAILURE);
 	}
-	
+	printf ("Output file: %s\n", nf);
 	printf("%d / %d", (int)ftell(f), s-32);
 	fwrite(&sig,1,4,ft);
 	

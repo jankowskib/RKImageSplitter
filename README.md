@@ -9,4 +9,3 @@ RKImageSplitter [filename]
 To do
 ----------------------
 * Extraction of bootloader
-* Displaying firmware info (data, version etc.)
